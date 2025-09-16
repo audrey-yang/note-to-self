@@ -1,4 +1,4 @@
-baseURL = "https://aryang.dev"
+baseURL = "https://blog.aryang.dev"
 
 theme = 'hugo-bearblog'
 
