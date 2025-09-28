@@ -13,13 +13,14 @@ disableKinds = ["taxonomy"]
 ignoreErrors = ["error-disable-taxonomy"]
 [permalinks]
   blog = "/:slug/"
-  tags = "/blog/:slug"
+  tags = "/posts/:slug"
 
 [params]
   description = "Learning in public"
   favicon = "static/images/favicon.png"
   title = "Audrey's Note To Self"
   hideMadeWithLine = true
+  enablePostNavigator = true
   dateFormat = "Jan. 2, 2006"
 
 [markup]
