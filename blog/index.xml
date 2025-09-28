@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>notes on note-to-self</title>
+    <link>http://localhost:1313/blog/</link>
+    <description>Recent content in notes on note-to-self</description>
+    <generator>Hugo</generator>
+    <language>en-US</language>
+    <copyright>Copyright © 2025, Audrey Yang.</copyright>
+    <lastBuildDate>Wed, 17 Sep 2025 22:13:59 -0500</lastBuildDate>
+    <atom:link href="http://localhost:1313/blog/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>SQL&#39;s SELECT DISTINCT ON</title>
+      <link>http://localhost:1313/sqls-select-distinct-on/</link>
+      <pubDate>Wed, 17 Sep 2025 22:13:59 -0500</pubDate>
+      <guid>http://localhost:1313/sqls-select-distinct-on/</guid>
+      <description>&lt;p&gt;&lt;em&gt;tldr: SQL madness&lt;/em&gt;&lt;/p&gt;&#xA;&lt;p&gt;I recently did a coding chalenge to build a survey site that analyzes responses at the end. They were interested in a question along the lines of &amp;ldquo;What was the most popular answer for people of each group?&amp;rdquo;, where the groups were decided by one of the questions.&lt;/p&gt;&#xA;&lt;p&gt;Here&amp;rsquo;s an example, where the groups might be &amp;ldquo;&amp;lt;18&amp;rdquo; and &amp;ldquo;18+&amp;rdquo;.&lt;/p&gt;&#xA;&lt;pre tabindex=&#34;0&#34;&gt;&lt;code&gt;1. What&amp;#39;s your age?&#xA;    A. 0-17     B. 18+&#xA;2. What&amp;#39;s your favorite season?&#xA;    A. Winter   B. Spring   C. Summer   D. Fall&#xA;3. What programming language do you like the best?&#xA;    A. C        B. Java     C. Python&#xA;&lt;/code&gt;&lt;/pre&gt;&lt;hr&gt;&#xA;&lt;p&gt;My DB schema was something like:&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>Hello, world!</title>
+      <link>http://localhost:1313/hello-world/</link>
+      <pubDate>Mon, 15 Sep 2025 22:34:07 -0500</pubDate>
+      <guid>http://localhost:1313/hello-world/</guid>
+      <description>&lt;p&gt;This is my first day using Hugo ʕ•ᴥ•ʔ&lt;/p&gt;</description>
+    </item>
+  </channel>
+</rss>

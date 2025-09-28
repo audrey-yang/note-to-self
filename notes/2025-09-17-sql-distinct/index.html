@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en-US">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta http-equiv="X-Clacks-Overhead" content="GNU Terry Pratchett" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="shortcut icon" href="http://localhost:1313/static/images/favicon.png" />
+<title>Using SELECT DISTINCT ON in PostgreSQL | note-to-self</title>
+<meta name="title" content="Using SELECT DISTINCT ON in PostgreSQL" />
+<meta name="description" content="Exploring a PostgreSQL problem" />
+<meta name="keywords" content="" />
+
+
+<meta property="og:url" content="http://localhost:1313/notes/2025-09-17-sql-distinct/">
+  <meta property="og:site_name" content="note-to-self">
+  <meta property="og:title" content="Using SELECT DISTINCT ON in PostgreSQL">
+  <meta property="og:description" content="Exploring a PostgreSQL problem">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="notes">
+    <meta property="article:published_time" content="2025-09-28T08:49:31-04:00">
+    <meta property="article:modified_time" content="2025-09-28T08:49:31-04:00">
+
+
+
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Using SELECT DISTINCT ON in PostgreSQL">
+  <meta name="twitter:description" content="Exploring a PostgreSQL problem">
+
+
+
+
+  <meta itemprop="name" content="Using SELECT DISTINCT ON in PostgreSQL">
+  <meta itemprop="description" content="Exploring a PostgreSQL problem">
+  <meta itemprop="datePublished" content="2025-09-28T08:49:31-04:00">
+  <meta itemprop="dateModified" content="2025-09-28T08:49:31-04:00">
+  <meta itemprop="wordCount" content="836">
+<meta name="referrer" content="no-referrer-when-downgrade" />
+
+  <style>
+  :root {
+    --width: 720px;
+    --font-main: Verdana, sans-serif;
+    --font-secondary: Verdana, sans-serif;
+    --font-scale: 1em;
+    --background-color: #fff;
+    --heading-color: #222;
+    --text-color: #444;
+    --link-color: #3273dc;
+    --visited-color: #8b6fcb;
+    --blockquote-color: #222;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background-color: #01242e;
+      --heading-color: #eee;
+      --text-color: #ddd;
+      --link-color: #8cc2dd;
+      --visited-color: #8b6fcb;
+      --blockquote-color: #ccc;
+    }
+  }
+
+  body {
+    font-family: var(--font-secondary);
+    font-size: var(--font-scale);
+    margin: auto;
+    padding: 20px;
+    max-width: var(--width);
+    text-align: left;
+    background-color: var(--background-color);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.5;
+    color: var(--text-color);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-main);
+    color: var(--heading-color);
+  }
+
+  a {
+    color: var(--link-color);
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  a:hover {
+    text-decoration: underline;
+  }
+
+  nav a {
+    margin-right: 8px;
+  }
+
+  strong,
+  b {
+    color: var(--heading-color);
+  }
+
+  button {
+    margin: 0;
+    cursor: pointer;
+  }
+
+  time {
+    font-family: monospace;
+    font-style: normal;
+    font-size: 15px;
+  }
+
+  main {
+    line-height: 1.6;
+  }
+
+  table {
+    width: 100%;
+  }
+
+  hr {
+    border: 0;
+    border-top: 1px dashed;
+  }
+
+  img {
+    max-width: 100%;
+  }
+
+  code {
+    font-family: monospace;
+    padding: 2px;
+    border-radius: 3px;
+  }
+
+  blockquote {
+    border-left: 1px solid #999;
+    color: var(--blockquote-color);
+    padding-left: 20px;
+    font-style: italic;
+  }
+
+  footer {
+    padding: 25px 0;
+    text-align: center;
+  }
+
+  .title:hover {
+    text-decoration: none;
+  }
+
+  .title h1 {
+    font-size: 1.5em;
+  }
+
+  .inline {
+    width: auto !important;
+  }
+
+  .highlight,
+  .code {
+    border-radius: 3px;
+    margin-block-start: 1em;
+    margin-block-end: 1em;
+    overflow-x: auto;
+  }
+
+   
+  ul.blog-posts {
+    list-style-type: none;
+    padding: unset;
+  }
+
+  ul.blog-posts li {
+    display: flex;
+  }
+
+  ul.blog-posts li span {
+    flex: 0 0 130px;
+  }
+
+  ul.blog-posts li a:visited {
+    color: var(--visited-color);
+  }
+
+</style>
+
+</head>
+
+<body>
+  <header><a href="/" class="title">
+  <h2>note-to-self</h2>
+</a>
+<nav>
+<a href="/">home</a>
+
+<a href="/notes/">notes</a>
+
+</nav>
+</header>
+  <main>
+
+<h1>Using SELECT DISTINCT ON in PostgreSQL</h1>
+<p>
+  <i>
+    <time datetime='2025-09-28'>
+      Sep. 28, 2025
+    </time>
+  </i>
+</p>
+
+<content>
+  <p><em>tl;dr: PostgreSQL&rsquo;s <code>SELECT DISTINCT ON</code> is a functional solution for getting top counts of a <code>GROUP BY</code>.</em></p>
+<h2 id="the-context">The Context</h2>
+<p>I recently did a coding challenge to build a survey application that analyzes responses at the end. The analysis centered around a question along the lines of &ldquo;What was the most popular answer for people of each group?&rdquo;, where the groups were decided by one of the questions.</p>
+<p>Here&rsquo;s an example, where the groups might be &ldquo;0-17&rdquo; and &ldquo;18+&rdquo;.</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1</span><span>1. What&#39;s your age?
+</span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2</span><span>    A. 0-17     B. 18+
+</span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3</span><span>2. What&#39;s your favorite season?
+</span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4</span><span>    A. Winter   B. Spring   C. Summer   D. Fall
+</span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5</span><span>3. What programming language do you like the best?
+</span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6</span><span>    A. C        B. Java     C. Python
+</span></span></code></pre></div><p>The following presents my solution (which admittedly could be improved on) and a problem I ran into.</p>
+<h2 id="the-database">The Database</h2>
+<p>My DB schema was something like:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1</span><span>questions<span style="color:#bbb"> </span>(<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2</span><span><span style="color:#bbb">    </span>id<span style="color:#bbb"> </span><span style="color:#007020">SERIAL</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">PRIMARY</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">KEY</span>,<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3</span><span><span style="color:#bbb">    </span>question<span style="color:#bbb"> </span><span style="color:#007020">VARCHAR</span>(<span style="color:#40a070">256</span>)<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">NOT</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">NULL</span>,<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4</span><span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">options</span><span style="color:#bbb"> </span><span style="color:#007020">VARCHAR</span>(<span style="color:#40a070">64</span>)[]<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">NOT</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">NULL</span>,<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5</span><span><span style="color:#bbb"></span>);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6</span><span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7</span><span><span style="color:#bbb"></span>answers<span style="color:#bbb"> </span>(<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8</span><span><span style="color:#bbb">    </span>response_id<span style="color:#bbb"> </span><span style="color:#007020">SERIAL</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">NOT</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">NULL</span>,<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9</span><span><span style="color:#bbb">    </span>question_id<span style="color:#bbb"> </span><span style="color:#007020">INTEGER</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">REFERENCES</span><span style="color:#bbb"> </span>questions(id),<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10</span><span><span style="color:#bbb">    </span>answer<span style="color:#bbb"> </span><span style="color:#007020">VARCHAR</span>(<span style="color:#40a070">64</span>),<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11</span><span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">PRIMARY</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">KEY</span><span style="color:#bbb"> </span>(response_id,<span style="color:#bbb"> </span>question_id)<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12</span><span><span style="color:#bbb"></span>);<span style="color:#bbb">
+</span></span></span></code></pre></div><p>When a survey is submitted, the backend tracks the <code>response_id</code> generated for the first insert and uses that same <code>response_id</code> for the other questions in the survey.</p>
+<p>Our data might look something like this</p>
+<table>
+  <thead>
+      <tr>
+          <th>id</th>
+          <th>question</th>
+          <th>options</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>0</td>
+          <td>How old are you?</td>
+          <td>{0-17,18+}</td>
+      </tr>
+      <tr>
+          <td>1</td>
+          <td>What&rsquo;s your favorite season?</td>
+          <td>{Winter,Spring,Summer,Fall}</td>
+      </tr>
+  </tbody>
+</table>
+<table>
+  <thead>
+      <tr>
+          <th>response_id</th>
+          <th>question_id</th>
+          <th>answer</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>0</td>
+          <td>0</td>
+          <td>0-17</td>
+      </tr>
+      <tr>
+          <td>0</td>
+          <td>1</td>
+          <td>Fall</td>
+      </tr>
+      <tr>
+          <td>1</td>
+          <td>0</td>
+          <td>18+</td>
+      </tr>
+      <tr>
+          <td>1</td>
+          <td>1</td>
+          <td>Spring</td>
+      </tr>
+  </tbody>
+</table>
+<h2 id="the-analysis">The Analysis</h2>
+<p>Now, to actually analyze the data and answer the big question. Using this example, we&rsquo;ll try to figure out the responses for those 18+.</p>
+<p>First, we&rsquo;ll start with some subqueries. We want to separate out the group in question.</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1</span><span><span style="color:#007020;font-weight:bold">WITH</span><span style="color:#bbb"> </span>adults<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">AS</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">SELECT</span><span style="color:#bbb"> </span>response_id<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">FROM</span><span style="color:#bbb"> </span>answers<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">WHERE</span><span style="color:#bbb"> </span>question_id<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#40a070">0</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">AND</span><span style="color:#bbb"> </span>answer<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#4070a0">&#39;18+&#39;</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>Then, we&rsquo;ll want to get the count per question_id. We can sort these to get the most popular responses per category first.</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1</span><span><span style="color:#007020;font-weight:bold">SELECT</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">COUNT</span>(<span style="color:#666">*</span>)<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">AS</span><span style="color:#bbb"> </span>response_count,<span style="color:#bbb"> </span>question_id,<span style="color:#bbb"> </span>answer<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">FROM</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2</span><span><span style="color:#bbb">    </span>(<span style="color:#007020;font-weight:bold">SELECT</span><span style="color:#bbb"> </span><span style="color:#666">*</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">FROM</span><span style="color:#bbb"> </span>adults<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">JOIN</span><span style="color:#bbb"> </span>answers<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">ON</span><span style="color:#bbb"> </span>adults.response_id<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>answers.response_id)<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3</span><span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">GROUP</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">BY</span><span style="color:#bbb"> </span>question_id,<span style="color:#bbb"> </span>answer<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4</span><span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">ORDER</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">BY</span><span style="color:#bbb"> </span>response_count<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">DESC</span>;<span style="color:#bbb">
+</span></span></span></code></pre></div><p>This will get us a result like:</p>
+<table>
+  <thead>
+      <tr>
+          <th>response_count</th>
+          <th>question_id</th>
+          <th>answer</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>10</td>
+          <td>0</td>
+          <td>18+</td>
+      </tr>
+      <tr>
+          <td>5</td>
+          <td>1</td>
+          <td>Fall</td>
+      </tr>
+      <tr>
+          <td>3</td>
+          <td>1</td>
+          <td>Spring</td>
+      </tr>
+      <tr>
+          <td>2</td>
+          <td>1</td>
+          <td>Summer</td>
+      </tr>
+  </tbody>
+</table>
+<h2 id="my-problem">My Problem</h2>
+<p>I got stuck at this point. My original thought had been to get the <code>MAX</code> from the counts, then join it back with the counts in order to get the response text. This might have been a working solution with other versions of SQL, but I was using Postgres.</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1</span><span><span style="color:#007020;font-weight:bold">WITH</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2</span><span><span style="color:#bbb">    </span>adults<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">AS</span><span style="color:#bbb"> </span>...,<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3</span><span><span style="color:#bbb">    </span>counts<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">AS</span><span style="color:#bbb"> </span>...,<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4</span><span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">SELECT</span><span style="color:#bbb"> </span>answer,<span style="color:#bbb"> </span>questions.question,<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">MAX</span>(response_count)<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5</span><span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">FROM</span><span style="color:#bbb"> </span>counts<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">JOIN</span><span style="color:#bbb"> </span>questions<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">ON</span><span style="color:#bbb"> </span>counts.question_id<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>questions.question_id;<span style="color:#bbb">
+</span></span></span></code></pre></div><p>The above query throws an error:</p>
+<blockquote>
+<p>ERROR: column &ldquo;counts.answer&rdquo; must appear in the GROUP BY clause or be used in an aggregate function</p></blockquote>
+<p>In <a href="https://www.postgresql.org/docs/current/sql-select.html#SQL-GROUPBY">the docs</a>, Postgres specifies that:</p>
+<blockquote>
+<p>When GROUP BY is present, or any aggregate functions are present, it is not valid for the SELECT list expressions to refer to ungrouped columns except within aggregate functions or when the ungrouped column is functionally dependent on the grouped columns, since there would otherwise be more than one possible value to return for an ungrouped column.</p></blockquote>
+<h2 id="a-solution">A Solution</h2>
+<p>Luckily, Postgres provides something called <code>SELECT DISTINCT ON</code>. According to <a href="https://www.postgresql.org/docs/current/sql-select.html">the docs</a>,</p>
+<blockquote>
+<p><code>SELECT DISTINCT ON ( expression [, ...] )</code> keeps only the first row of each set of rows where the given expressions evaluate to equal&hellip; Note that the “first row” of each set is unpredictable unless <code>ORDER BY</code> is used to ensure that the desired row appears first.</p></blockquote>
+<p>Using this, we can write a query to <code>SELECT DISTINCT ON</code> the question_id. This will drop every row except for the first for every question_id. By the docs, we should use an <code>ORDER BY</code>with this statement.</p>
+<p>This gives us a final query of:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f0f0f0;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1</span><span><span style="color:#007020;font-weight:bold">WITH</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2</span><span><span style="color:#bbb">    </span>adults<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">AS</span><span style="color:#bbb"> </span>(<span style="color:#007020;font-weight:bold">SELECT</span><span style="color:#bbb"> </span>response_id<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">FROM</span><span style="color:#bbb"> </span>answers<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">WHERE</span><span style="color:#bbb"> </span>question_id<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#40a070">0</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">AND</span><span style="color:#bbb"> </span>answer<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span><span style="color:#4070a0">&#39;18+&#39;</span>),<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3</span><span><span style="color:#bbb">    </span>counts<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">AS</span><span style="color:#bbb"> </span>(<span style="color:#007020;font-weight:bold">SELECT</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">COUNT</span>(<span style="color:#666">*</span>)<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">AS</span><span style="color:#bbb"> </span>response_count,<span style="color:#bbb"> </span>question_id,<span style="color:#bbb"> </span>answer<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">FROM</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4</span><span><span style="color:#bbb">            </span>(<span style="color:#007020;font-weight:bold">SELECT</span><span style="color:#bbb"> </span><span style="color:#666">*</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">FROM</span><span style="color:#bbb"> </span>adults<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">JOIN</span><span style="color:#bbb"> </span>answers<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">ON</span><span style="color:#bbb"> </span>adults.response_id<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>answers.response_id)<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5</span><span><span style="color:#bbb">        </span><span style="color:#007020;font-weight:bold">GROUP</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">BY</span><span style="color:#bbb"> </span>question_id,<span style="color:#bbb"> </span>answer)<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6</span><span><span style="color:#bbb"></span><span style="color:#007020;font-weight:bold">SELECT</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">DISTINCT</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">ON</span><span style="color:#bbb"> </span>(question_id)<span style="color:#bbb"> </span>question,<span style="color:#bbb"> </span>answer,<span style="color:#bbb"> </span>response_count<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7</span><span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">FROM</span><span style="color:#bbb"> </span>counts<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">JOIN</span><span style="color:#bbb"> </span>questions<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">ON</span><span style="color:#bbb"> </span>counts.question_id<span style="color:#bbb"> </span><span style="color:#666">=</span><span style="color:#bbb"> </span>questions.id<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8</span><span><span style="color:#bbb">    </span><span style="color:#007020;font-weight:bold">ORDER</span><span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">BY</span><span style="color:#bbb"> </span>question_id,<span style="color:#bbb"> </span>response_count<span style="color:#bbb"> </span><span style="color:#007020;font-weight:bold">DESC</span>;<span style="color:#bbb">
+</span></span></span></code></pre></div><p>Running the query produces a result like:</p>
+<table>
+  <thead>
+      <tr>
+          <th>question</th>
+          <th>answer</th>
+          <th>response_count</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>What&rsquo;s your age?</td>
+          <td>18+</td>
+          <td>10</td>
+      </tr>
+      <tr>
+          <td>What&rsquo;s your favorite season?</td>
+          <td>Spring</td>
+          <td>5</td>
+      </tr>
+      <tr>
+          <td>What programming language do you like the best?</td>
+          <td>C</td>
+          <td>7</td>
+      </tr>
+  </tbody>
+</table>
+<h2 id="one-last-caveat">One Last Caveat</h2>
+<p>You may have noticed that I changed the subquery for <code>counts</code> and moved the <code>ORDER BY</code> into the outermost <code>SELECT</code>. After running a few tests, I found that the sorting within the subquery did not translate to having the correct order in the final result. In fact, it would be completely backwards, working when I used <code>ORDER BY ... ASC</code>.</p>
+<p>The documentation does specify that the behavior of <code>SELECT DISTINCT ON</code> is unpredictable without an <code>ORDER BY</code>, which I&rsquo;ve taken to mean as an <code>ORDER BY</code> in the same clause. From my observations, subquery orderings are still susceptible to the unpredictability here.</p>
+
+</content>
+
+<div style="font-size:0.8em;display:flex;gap:16px;justify-content:center;">
+  <p>
+    
+    <a href="http://localhost:1313/notes/2025-09-15-hello/">
+      &lt;&lt; Previous Post</a>
+        
+  </p>
+  <p>|</p>
+  <p>
+    
+    <strike>Next Post >></strike>
+    
+  </p>
+</div>
+
+
+<p>
+  
+</p>
+
+  </main>
+  <footer>
+</footer>
+
+  
+</body>
+
+</html>

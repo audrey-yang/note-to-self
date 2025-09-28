@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en-US">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <meta http-equiv="X-Clacks-Overhead" content="GNU Terry Pratchett" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="shortcut icon" href="http://localhost:1313/static/images/favicon.png" />
+<title>SQL&#39;s SELECT DISTINCT ON | note-to-self</title>
+<meta name="title" content="SQL&#39;s SELECT DISTINCT ON" />
+<meta name="description" content="Exploring a PostgreSQL problem" />
+<meta name="keywords" content="" />
+
+
+<meta property="og:url" content="http://localhost:1313/sqls-select-distinct-on/">
+  <meta property="og:site_name" content="note-to-self">
+  <meta property="og:title" content="SQL&#39;s SELECT DISTINCT ON">
+  <meta property="og:description" content="Exploring a PostgreSQL problem">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="blog">
+    <meta property="article:published_time" content="2025-09-17T22:13:59-05:00">
+    <meta property="article:modified_time" content="2025-09-17T22:13:59-05:00">
+
+
+
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="SQL&#39;s SELECT DISTINCT ON">
+  <meta name="twitter:description" content="Exploring a PostgreSQL problem">
+
+
+
+
+  <meta itemprop="name" content="SQL&#39;s SELECT DISTINCT ON">
+  <meta itemprop="description" content="Exploring a PostgreSQL problem">
+  <meta itemprop="datePublished" content="2025-09-17T22:13:59-05:00">
+  <meta itemprop="dateModified" content="2025-09-17T22:13:59-05:00">
+  <meta itemprop="wordCount" content="254">
+<meta name="referrer" content="no-referrer-when-downgrade" />
+
+  <style>
+  :root {
+    --width: 720px;
+    --font-main: Verdana, sans-serif;
+    --font-secondary: Verdana, sans-serif;
+    --font-scale: 1em;
+    --background-color: #fff;
+    --heading-color: #222;
+    --text-color: #444;
+    --link-color: #3273dc;
+    --visited-color: #8b6fcb;
+    --blockquote-color: #222;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background-color: #01242e;
+      --heading-color: #eee;
+      --text-color: #ddd;
+      --link-color: #8cc2dd;
+      --visited-color: #8b6fcb;
+      --blockquote-color: #ccc;
+    }
+  }
+
+  body {
+    font-family: var(--font-secondary);
+    font-size: var(--font-scale);
+    margin: auto;
+    padding: 20px;
+    max-width: var(--width);
+    text-align: left;
+    background-color: var(--background-color);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.5;
+    color: var(--text-color);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-main);
+    color: var(--heading-color);
+  }
+
+  a {
+    color: var(--link-color);
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  a:hover {
+    text-decoration: underline;
+  }
+
+  nav a {
+    margin-right: 8px;
+  }
+
+  strong,
+  b {
+    color: var(--heading-color);
+  }
+
+  button {
+    margin: 0;
+    cursor: pointer;
+  }
+
+  time {
+    font-family: monospace;
+    font-style: normal;
+    font-size: 15px;
+  }
+
+  main {
+    line-height: 1.6;
+  }
+
+  table {
+    width: 100%;
+  }
+
+  hr {
+    border: 0;
+    border-top: 1px dashed;
+  }
+
+  img {
+    max-width: 100%;
+  }
+
+  code {
+    font-family: monospace;
+    padding: 2px;
+    border-radius: 3px;
+  }
+
+  blockquote {
+    border-left: 1px solid #999;
+    color: var(--blockquote-color);
+    padding-left: 20px;
+    font-style: italic;
+  }
+
+  footer {
+    padding: 25px 0;
+    text-align: center;
+  }
+
+  .title:hover {
+    text-decoration: none;
+  }
+
+  .title h1 {
+    font-size: 1.5em;
+  }
+
+  .inline {
+    width: auto !important;
+  }
+
+  .highlight,
+  .code {
+    border-radius: 3px;
+    margin-block-start: 1em;
+    margin-block-end: 1em;
+    overflow-x: auto;
+  }
+
+   
+  ul.blog-posts {
+    list-style-type: none;
+    padding: unset;
+  }
+
+  ul.blog-posts li {
+    display: flex;
+  }
+
+  ul.blog-posts li span {
+    flex: 0 0 130px;
+  }
+
+  ul.blog-posts li a:visited {
+    color: var(--visited-color);
+  }
+
+</style>
+
+</head>
+
+<body>
+  <header><a href="/" class="title">
+  <h2>note-to-self</h2>
+</a>
+<nav>
+<a href="/">home</a>
+
+<a href="/blog/">notes</a>
+
+</nav>
+</header>
+  <main>
+
+<h1>SQL&#39;s SELECT DISTINCT ON</h1>
+<p>
+  <i>
+    <time datetime='2025-09-17'>
+      Sep. 17, 2025
+    </time>
+  </i>
+</p>
+
+<content>
+  <p><em>tldr: SQL madness</em></p>
+<p>I recently did a coding chalenge to build a survey site that analyzes responses at the end. They were interested in a question along the lines of &ldquo;What was the most popular answer for people of each group?&rdquo;, where the groups were decided by one of the questions.</p>
+<p>Here&rsquo;s an example, where the groups might be &ldquo;&lt;18&rdquo; and &ldquo;18+&rdquo;.</p>
+<pre tabindex="0"><code>1. What&#39;s your age?
+    A. 0-17     B. 18+
+2. What&#39;s your favorite season?
+    A. Winter   B. Spring   C. Summer   D. Fall
+3. What programming language do you like the best?
+    A. C        B. Java     C. Python
+</code></pre><hr>
+<p>My DB schema was something like:</p>
+<pre tabindex="0"><code>questions (
+    id SERIAL PRIMARY KEY,
+    question VARCHAR(256) NOT NULL,
+    options VARCHAR(64)[] NOT NULL,
+);
+
+answers (
+    response_id SERIAL NOT NULL,
+    question_id INTEGER REFERENCES questions(id),
+    answer VARCHAR(64),
+    PRIMARY KEY (response_id, question_id)
+);
+</code></pre><p>When a survey is submitted, the backend tracks the <code>response_id</code> generated for the first insert and uses that same <code>response_id</code> for the other questions in the survey.</p>
+<p>Our data might look something like this</p>
+<table>
+  <thead>
+      <tr>
+          <th>id</th>
+          <th>question</th>
+          <th>options</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>0</td>
+          <td>How old are you?</td>
+          <td>0-17,18+</td>
+      </tr>
+      <tr>
+          <td>1</td>
+          <td>What&rsquo;s your favorite season?</td>
+          <td>Winter,Spring,Summer,Fall</td>
+      </tr>
+  </tbody>
+</table>
+<table>
+  <thead>
+      <tr>
+          <th>response_id</th>
+          <th>question_id</th>
+          <th>answer</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>0</td>
+          <td>0</td>
+          <td>0-17</td>
+      </tr>
+      <tr>
+          <td>0</td>
+          <td>1</td>
+          <td>Fall</td>
+      </tr>
+      <tr>
+          <td>1</td>
+          <td>0</td>
+          <td>18+</td>
+      </tr>
+      <tr>
+          <td>1</td>
+          <td>1</td>
+          <td>Spring</td>
+      </tr>
+  </tbody>
+</table>
+<hr>
+<p>Now, to actually analyze the data and answer the big question. Using this example, we&rsquo;ll try to figure out the responses for those 18+.</p>
+<p>First, we&rsquo;ll start with some subqueries. We want to separate out the group in question.</p>
+<pre tabindex="0"><code>WITH group AS (SELECT response_id FROM answers WHERE question_id = 0 AND response = &#39;18+&#39;)
+</code></pre>
+</content>
+
+<div style="font-size:0.8em;display:flex;gap:16px;justify-content:center;">
+  <p>
+    
+    <a href="http://localhost:1313/hello-world/">
+      &lt;&lt; Previous Post</a>
+        
+  </p>
+  <p>|</p>
+  <p>
+    
+    <strike>Next Post >></strike>
+    
+  </p>
+</div>
+
+
+<p>
+  
+</p>
+
+  </main>
+  <footer>
+</footer>
+
+  
+</body>
+
+</html>
